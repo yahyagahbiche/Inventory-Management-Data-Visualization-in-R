@@ -1,0 +1,55 @@
+---
+title: "Midterm Project Gahbiche Email memo"
+output: html_document
+---
+
+#### **To: Quian Xu **  
+  
+#### **From: Yahya Gahbiche**  
+  
+#### **Date: 5/27/2020**   
+  
+#### **RE: Midterm Project: Office Mate** 
+
+<br>
+
+
+Dear Quian,
+
+
+In this project I worked on understanding current situation of Office Mates in terms of sales and revenue. I was able to find several insights from the provided data and recommemend a few suggested course of action to make Office Mate more profitable. In order to do that, I used the internal dataset that I used to create quality visuals and tabales that can better articulate the story behind the data. 
+
+In this email I will be presenting some of my findings and will be supported with some graphs.
+
+
+One of the most important key to business process improvement is eliminating waste and doing things more efficiently. That being said, I looked at the data of the number of items that we ship per order and it turns out that most customers have 2 and 3 items in one order. I believe that if we want to save money and process orders more quickly we need to get bundle more items in a single order. To better visualize this finding I've attached a graph below that clearly represent it.
+
+
+<br>
+
+![](Most orders contain 2 and 3 items per order.png){width=500px}
+
+
+Additionally, I noticed that most customers prefer not to pay too much shipping and use Standard Shipping. However, this comes at a high cost for us as we don't ship orders at a high rate. I am suggesting we focus more on Same Day and First Class shipping. This is the only way we can keep up with large competitors like Amazon. Below is a graph that breaks down the cost for each shippping mode.
+
+
+
+<br>
+
+![](Standard shipping orders have a high cost associated with them.png){width=500px}
+
+
+Finally, I would like to present to you some of the findings I came across as I was analyzing the data: 
+
++ Annual profits from Technology and Office Supplies categories contribute significantly to the overall profit of the company. We should focus on those.
+	
++ Looking at Subcategories, we should sell more of: Furnishings, copiers, accessories, paper, Art and stop selling tables and machines.
+
+
+I hope that this gives you an ideas on the current situations of sales and on how we can improve our operations to reduce waste and generate more profit. Should you require further insights in this analysis please do not hesistate to reach out to me.
+
+
+Best,
+Yahya
+
+

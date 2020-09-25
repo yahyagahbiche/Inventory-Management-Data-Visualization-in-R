@@ -1,0 +1,1656 @@
+---
+title: "TA Midterm Project Gahbiche"
+author: "Yahya Gahbiche"
+date: "May 13, 2020"
+output: 
+  html_document:
+    toc: TRUE
+    toc_depth: 3
+    toc_float: true
+    number_sections: true
+---
+
+
+```{r}
+# Course: 3210 Communicating Data
+# Purpose: Midterm project
+# Date: 5/13/2020
+# Author: Yahya Gahbiche
+```
+
+
+```{r}
+# Clear environment of variables and functions
+rm(list = ls(all = TRUE)) 
+```
+
+```{r echo = FALSE, message=FALSE, warning=FALSE, include=FALSE}
+
+# Clear environmet of packages
+if(is.null(sessionInfo()$otherPkgs) == FALSE)lapply(paste("package:", names(sessionInfo()$otherPkgs), sep=""), detach, character.only = TRUE, unload = TRUE)
+```
+
+
+# Project Goal
+
++ The goal of this project is to analyze, find several insights from the provided data and recommemend two suggested course of action to make Office Mate more profitable. I will be completing a base, detailed, and statistical EDA in an R Markdown document as a Technical Appendix. A two-page report will be prepared for Quian Xu in the form of a memorandum. 
+
+
+# Load Packages
+
+```{r message=FALSE, warning=FALSE}
+# Load packages
+
+library(tidyverse) # ggplot2, dplyr
+library(gridExtra)
+library(janitor)
+library(knitr)
+library(GGally)
+library(scales)
+library(lubridate)
+library(kableExtra)
+library(MultinomialCI) # mulinomal confindence interval
+library(data.table)
+library(formattable)
+
+
+```
+
+# Load and transforming data
+
+```{r}
+# Loading data
+OM <- read.csv("mtp_off_mate.csv", header = TRUE)
+
+```
+
+# Base EDA Step 1: Uni-variate non-graphical EDA
+
+```{r}
+# Taking a look at our data structures  
+
+head(OM)
+```
+
+**Comments**
+
++ Data looks tidy
++ Nothing out of the ordinary
+
+
+```{r}
+# View structures of data
+
+str(OM) 
+
+```
+
+**Comments**
+
++ This data has 9994 observations and 18 variables:
+
++ Order.ID: **Factor**
+
+    - This variable might not be so relevant in our analysis so we might remove it.
+    
+
++ Order.Date: **Date**
+      
+      
++ Ship.Date: **Date**
+      
+    - We can create a new variable and call it shipping time to determine how many days it takes for an item to ship once an order is placed. This can be calculated it by subtracting Ship.Date from Order.Date.
+    
+
++ Ship.Mode: **Factor**
+    
+    - Indicates shipping mode: First Class, Same Day, Second Class, Standard Class
+    
+    
++ Customer.ID: **Factor**
+    
+    
++ City, State, Postal Code, Region: **Factor**
+    
+    - These geographical variables can help us understand current market by looking at different areas.
+    
+
++ Product.ID: **Factor**
+
+    - We can look at this with Customer.ID and do some analysis on both variables
+    
+    
++ Segment: **Factor**
+    
+    -Three segments: Consumer, Corporate, Home Office
+    
+    - This can be very useful for suggesting recommendation based on what market segment Office Mate should focus on.
+    
++ Category: **Factor**
+    
+    - Three categories: Furniture, Office Supply, and Technology
+    
+    - We can run analysis using other variables to see how they might be connected. For example we can look at region or segment
+    
+    
++ Sub.Category: **Factor**
+    
+    - We can use this with Category and graph both factors.
+  
++ Revenue: **Quantitative**
+    
+    - We can calcuate the price and added it as a variable as it has not been given to us in the data.
+    
+    - We can also get the the cost from the Revenue and Profit.
+    
++ Quantity: **Factor**
+    
+    - Number of units of the specific product sold for that order 
+  
++ Discount: **Factor**
+    
+    - We can see if discount impacts Profit and quantity sold
+    
++ Profit: **Factor**
+    
+    - This is going to be our dependent variable in our analysis
+
+  
+# Data wrangling  
+
+```{r}
+
+# Converting the variable dates into date structure
+OM$Order.Date <- mdy(OM$Order.Date)
+OM$Ship.Date <- mdy(OM$Ship.Date)
+
+# Converting Postal Code to factor 
+
+OM$Postal.Code <- as.factor(OM$Postal.Code)
+
+# Removing Order.ID variable
+
+OM <- select(OM, -c(Order.ID))
+
+# Creating cost and shippping time variables 
+
+OM <- OM %>% 
+  mutate(Days_In_Shipping = Ship.Date - Order.Date) %>% 
+  mutate(Cost = Revenue - Profit)
+
+OM$Days_In_Shipping <- as.factor(OM$Days_In_Shipping)
+
+```
+
+```{r}
+# Summary of Data  
+summary(OM)
+```
+
+
+**Comments**
+
+
++ Ship.Mode: 
+  
+
+    - Standard class is the most used shipping mode: 5968 orders. It makes sense as it's the cheapest shipping method.
+    
+    - First and second class have close number of orders 1538 and 1945 respectively.
+    
+    - Same day has only 543. It is the most expensive shipping mode which explains the small order count.
+    
+
++ City: 
+    
+    - New York City has most orders: 915
+    
+    - Los Angeles comes second: 747
+    
+    - Philadelphia, San Francisco, and Seattle have similar number of orders. 
+  
+    - The disproportion of orders in cities can be due to sizes of cities, which implies the population size. Other factors might cause this disproportion as well.
+    
++ States: 
+
+    - Top 3 states are:
+    
+      - California: 2001
+      
+      - New York: 1128
+      
+      - Texas: 985
+      
+      
++ Region: 
+
+
+    - West has the most orders: 3203
+
+    - East has the second most: 2848
+    
+
++ Segment: 
+    
+    - Consumers order the most: 5191
+    
+    - Corporate order second most: 3020
+      
++ Category:
+
+    - Office Supplies has the higest order: 6026
+    
+     
++ Sub-Categories: 
+
+    - Most orders come from Binders and paper. However there are a lot of other sub-categories. 
+  
++ Revenue: 
+
+    - Min is $0.444
+    
+    - max is $22,638.48
+    
+    - Median is $54.49
+      
+    - Mean is $229.86
+      
+    - We Will use median for our analysis.
+  
++ Discount: 
+
+    - Min 0%
+      
+    - Max 80%
+      
+    - Median is 20%
+      
+    - Mean 15.6%
+      
+    - We Will use median for our analysis.
+
++ Profit
+
+    - Min -$6599.98
+    
+    - Max $8399.98
+    
+    - Median $8.67
+    
+    - Mean $28.66
+    
+    - We Will use median for our analysis.
+    
++ Cost: 
+
+    - Min : 0.55
+        
+    - Max: 24449.56  
+
+    - Median: 41.66 
+    
+    - Mean: 201.20  
+
+
+**Questions**
+
++ Does geographical locations impact sales and profit?
+
++ What is contributing to high costs and how can we eliminate that? 
+
++ What are the product segments and product category that generate the most profit?
+
++ How is the shipping mode impacting cost and profit? 
+
++ Do we know which products bring in most profit? 
+
++ How are discounts impacting sales? 
+
+
+
+# Base EDA Step 2: Uni-variate graphical EDA
+
+## Step2.1: Categorical/ Factor variables:
+
+
+**Shipping Mode**
+
+```{r}
+ship1 <- OM %>% 
+  group_by(Ship.Mode) %>%
+  summarise(Count=n()) %>% 
+  
+  ggplot(mapping = aes(reorder(x = Ship.Mode, Count), 
+                       y = Count)) + 
+  geom_bar(stat = "identity") + 
+  theme_classic() + 
+  scale_y_continuous(breaks = seq(0,6000,1000)) +
+  labs ( title = "Most customers prefer Standard Class",
+         subtitle = "First and second class are close in count",
+         x = "Shipping Mode",
+         y = "Sales Count")
+ship1
+
+  
+```
+
+
+
+**Customer Segment and Product Category**
+
+```{r}
+grid.arrange(
+    
+  OM %>%
+      ggplot(mapping = aes(x = Segment)) + 
+      geom_bar() + 
+      theme_classic() + 
+      theme(axis.ticks.x = element_blank()) +
+      labs ( title = "Consumer segment is has\ndouble the number of orders\nthan Home Office",
+             subtitle = "This graph will be used to determine which\nsegment we must target",
+             x = "Customer Segment",
+             y = "Count"),
+  
+  OM %>%
+      ggplot(mapping = aes(x = Category)) + 
+      geom_bar() + 
+      theme_classic() + 
+      scale_y_continuous(breaks = seq(0,6000,1000)) +
+      theme(axis.ticks.x = element_blank()) +
+      labs ( title = "Office Supplies is the best selling\nproduct category",
+             x = "Product Category",
+             y = "Count"),
+
+ncol = 2
+)
+
+```
+
+
+**Product ID**
+
+```{r}
+
+OM %>%
+      ggplot(mapping = aes(x = Product.ID)) + 
+      geom_bar() + 
+      theme_classic() + 
+      scale_y_continuous(breaks = seq(0,20,2)) +
+      theme(axis.ticks.x = element_blank(),
+            axis.text = element_blank() ) +
+      labs ( title = "There are only a few best selling products",
+             subtitle = "Could those products be Office Supplies?",
+             x = "Product ID",
+             y = "Sales Count")
+```
+
+
+**Product ID with narrowed data**
+
+```{r}
+
+Popular_Products <- OM %>% 
+ group_by(Product.ID) %>%
+ distinct() %>% 
+ summarise(Count=n()) %>% 
+  filter(Count > 15)
+
+Popular_Products %>% 
+  ggplot(mapping = aes(x= reorder(Popular_Products$Product.ID,Count),
+                       y = Count)) + 
+  geom_bar(stat = "identity")+
+  theme_classic() + 
+  scale_y_continuous(breaks = seq(0,20,2)) +
+  labs (title = "We can focus on these top Product ID to improve sales",
+         x = "Popular Product ID",
+         y = "Sales count")
+  
+
+```
+
+
+
+**Region**
+
+```{r}
+
+OM %>% 
+  group_by(Region) %>%
+  summarise(Count=n()) %>% 
+  
+  ggplot(mapping = aes(reorder(x = Region,Count), y = Count)) + 
+  geom_bar(stat = "identity") + 
+  coord_flip() +
+  theme_classic() + 
+  theme(axis.title.y = element_blank(),
+    axis.ticks.y = element_blank()) +
+  scale_y_continuous(breaks = seq(0,3000,500)) +
+  labs ( title = "Not much sales in the South",
+     subtitle = "Order in the West are double the orders in the South",
+     x = "Region",
+     y = "Sales Count") 
+```
+
+**City**
+
+```{r}
+
+OM %>%
+  ggplot(mapping = aes(x = City)) + 
+  geom_bar() + 
+  theme_classic() + 
+  scale_y_continuous(breaks = seq(0,800,100)) +
+  labs ( title = "There are high counts of cities and the data is cluttered",
+         subtitle = "We need narrow down our data",
+         x = "City",
+         y = "Sales Count")
+  
+```
+
+**Top Cities**
+
+```{r}
+# Narrowing down the city variable:
+
+TopCities <- OM %>% 
+ group_by(City) %>%
+ summarise(Count=n()) %>% 
+  filter(Count > 200)
+
+TopCities %>% 
+  ggplot(mapping = aes(x= reorder(TopCities$City,Count), y = Count)) + 
+  geom_bar(stat = "identity")+
+  coord_flip() +
+  theme_classic() + 
+  scale_y_continuous(breaks = seq(0,1000,100)) +
+  labs (title = "We can focus on these cities to improve sales",
+         x = "Regions",
+         y = "Sales count")
+  
+
+```
+
+**States**
+
+```{r}
+# Narrowing down the State variable:
+
+TopStates <- OM %>% 
+ group_by(State) %>%
+ summarise(Count=n()) %>% 
+  filter(Count > 500)
+
+TopStates %>% 
+  ggplot(mapping = aes(reorder(x= TopStates$State, TopStates$Count), y = TopStates$Count)) + 
+  geom_bar(stat = "identity")+
+  coord_flip() +
+  theme_classic() + 
+  scale_y_continuous(breaks = seq(0,2010,250)) +
+  labs (title = "We can focus on these states to improve sales",
+         x = "States",
+         y = "Sales count")
+```
+
+
+```{r}
+OM %>% 
+  ggplot(mapping = aes(x = Ship.Date)) + 
+  geom_bar()+
+  theme_classic() + 
+  scale_y_continuous(breaks = seq(0,30,5)) +
+  labs (title = "High sales happen in the holiday\nSeason before the New Years",
+         x = "Shipping Date",
+         y = "Sales count")
+```
+
+
+    
+**Comments**
+
++ Shipping Mode: 
+
+- We might focus on Standard shipping as it is the most used shipping method.
+    
+
++ Customer Segment: 
+
+- Consumers brings the most sales. We will focus on this segment.
+     
+
++ Product Category:	
+
+- Office Supplies brings the most sales. We will focus on this segment.
+    
+
++ Product ID: 
+
+- There are 3 Products that bring most sales. We'll advertise more of those products.
+
+
++ Region: 
+
+- Most sales come from the West so we will focus on that geographical location.
+
+
++ City: 
+
+
+- There were so many cities with small counts.
+
+- We narrowed down our data to the top cities:
+
+  - New York City, Los Angeles, Philadelphia, San Francisco, Seattle, Houston, Chicago, Columbus
+
+
++ States:
+
+    	
+- There were so many states with small counts.
+
+- We narrowed down our data to the top states:
+
+  - California, New York, Texas, Pennsylvania, Washington
+  
+
++ Shipping time: 
+
+- We have spikes in shipping at the end of each year, indicating that most people order for the holiday season.
+
+- We can take adventage of that and sell more.
+
+- We might want to look at each year separately using facets.
+
+
+
+**Questions**
+
++ What shipping method is generating the most profit?
+
++ What shipping method has high costs?
+
++ What is the relationship between product category and profit?
+
++ What Region, City, State, brings the most profit?
+
++ What is the time of the year where Office Mate has the highest sales every year? 
+
+
+## Step 2.2: Quantitative
+
+
+**Revenue**
+
+
+```{r}
+# Subsetting Revenue
+
+Year1 <- subset(OM, format(as.Date(Ship.Date),"%Y")==2012)
+Year2 <- subset(OM, format(as.Date(Ship.Date),"%Y")==2013)
+Year3 <- subset(OM, format(as.Date(Ship.Date),"%Y")==2014)
+Year4 <- subset(OM, format(as.Date(Ship.Date),"%Y")==2015)
+```
+
+
+
+**Revenue graphs of 2012 and 2013**
+
+
+```{r}
+
+grid.arrange(
+Year1 %>% 
+  ggplot(mapping = aes(x = Ship.Date, y = Revenue)) + 
+  geom_bar(stat = "identity") +
+  theme_classic() + 
+  labs(title = "Revenue from 2012",
+       subtitle = "Revenue peak occurs on March, September, and December",
+       x = "Shipping Date",
+       y= "Revenue"),
+
+Year2 %>% 
+  ggplot(mapping = aes(x = Ship.Date, y = Revenue)) + 
+  geom_bar(stat = "identity") +
+  theme_classic() + 
+  labs(title = "Revenue from 2013",
+       subtitle = "Revenue peak occurs on March, September, and December",
+       x = "Shipping Date",
+       y= "Revenue"),
+ncol = 1
+)
+
+```
+
+
+**Revenue graph 2014 and 2015**
+
+```{r}
+
+grid.arrange(
+Year3 %>% 
+  ggplot(mapping = aes(x = Ship.Date, y = Revenue)) + 
+  geom_bar(stat = "identity") +
+  theme_classic() + 
+  labs(title = "Revenue from 2014",
+       subtitle = "Revenue peak occurs on February, March, October, and December",
+       x = "Shipping Date",
+       y= "Revenue"),
+
+Year4 %>% 
+  ggplot(mapping = aes(x = Ship.Date, y = Revenue)) + 
+  geom_bar(stat = "identity") +
+  theme_classic() + 
+  labs(title = "Revenue from 2015",
+       subtitle = "Revenue peak occurs on February, April, October and  November",
+       x = "Shipping Date",
+       y= "Revenue"),
+ncol = 1
+)
+```
+
+
+
+**Comments**
+
++ Most Revenu is generated below $25.
+
++ There are a few outliers at high values of $10,000+. 
+
++ It seems like we have to get rid of outliers to focus our attention to the majority of the data.
+
++ Looking at 4 years separately, the peaks of sales happen mostly on **April**, **November**, and **December**. 
+
++ These months are very special in the United States because they are the peaks of holiday season: **Easter**, **Thanksgiving**, and **Christmas.**
+
+
+
+**Quantity per order**
+
+
+```{r}
+graph1 <- OM %>% 
+  ggplot(mapping = aes(x = Quantity))+
+  geom_bar(position = "dodge") +
+  labs(title = "Most orders contain 2 and 3 items per order",
+       x = "Quantity sold in each order",
+       y = "Sales count") + 
+  theme_classic() + 
+  scale_x_continuous(breaks = seq(0,15,1))
+graph1
+
+```
+
+**Comments**
+
++ We can come up with a strategy for saving money if we somehow can make customers add more items per order.
+
++ This will save us in the shipping and reduce waste.
+
++ Ideally we want each order to contain 4 items or more. 
+
+
+
+**Discount**
+
+```{r message=FALSE}
+
+OM %>% 
+  ggplot(mapping = aes(x = Discount)) + 
+  geom_histogram() + 
+  scale_x_continuous(breaks = seq(0,0.8,0.1), label = dollar)+
+  scale_y_continuous(breaks = seq(0,5000,500)) + 
+  theme_classic() +
+  labs(title = "Most Discounts are offered at $0.2",
+       subtitle = "Discounts are not offered most of the times")
+
+```
+
+
+**Comments**
+
+
++ There are many values below 500 and we would like to know how they compare to each other. 
+
++ So we will take a look at them by removing $0.00 and $0.20 from the graph.
+
+```{r}
+discount1 <- OM %>% 
+  filter(Discount > 0.2) %>% 
+  ggplot(mapping = aes(x = Discount)) + 
+  geom_histogram() + 
+  scale_x_continuous(breaks = seq(0.2,0.8,0.1), label = dollar)+
+  scale_y_continuous(breaks = seq(0,400,50)) + 
+  theme_classic() +
+  labs(title = "There are more discounts offered at $0.7 and $0.8",
+       subtitle = "How do discounts affect the overall sales?",
+       x = "Discounts")
+discount1
+
+```
+
+
+**Comments**
+
+
++ A significant number of discounts are offered at $0.2.
+
++ Office Mate doesn't always offer discounts. 
+
++ Although there are disocunts for $0.7 and $0.8, those two combined don't even represent 10% of the total dataset. Therefore, they are not very representative.
+
+
+**Questions** 
+
++ Are discounts impacting sales? 
+
++ When should Office Mate offer high discounts?
+
+
+**Cost and Revenue**
+
+
+```{r}
+OM %>% 
+  filter(Revenue < 6000 & Cost < 6000) %>% 
+  ggplot(mapping = aes(x = Cost, y = Revenue )) + 
+  geom_point() + 
+  theme_classic() +
+  scale_x_continuous(breaks = seq(0,6000,1000), label = dollar) +
+  scale_y_continuous(breaks = seq(0,6000,1000), label = dollar) +
+  labs(title = "Revenue increases as Cost increases",
+       subtitle = "We might run Regression Analysis in the next part")
+
+```
+
+  
+# Base EDA Step 3: Multi-variate non-graphical
+
+## Step 3.1: Categorical 
+
+```{r}
+# Setting up tables setting
+
+customGreen0 = "#DeF7E9"
+
+customGreen = "#71CA97"
+
+customRed = "#ff7f7f"
+
+customRed0 = "#ffcccc"
+
+```
+
+
+**Segment and Category count**
+
+```{r}
+
+table1 <- OM %>% 
+  tabyl(Segment, Category) %>% 
+  adorn_totals(where = c("row","col"))
+
+formattable(table1, align =c("l","c", "c", "c", "r"), list(
+  `Segment` = formatter("span", style = ~ style(color = "grey",font.weight = "bold")), 
+  `Furniture`= color_tile(customGreen, customGreen0),
+  `Office Supplies`= color_tile(customGreen, customGreen0),
+  `Technology`= color_tile(customGreen, customGreen0),
+  `Total` = color_tile(customRed,customRed0)
+))
+
+
+
+
+```
+
+
+**Segment and Category proportions**
+
+
+```{r}
+table2 <- OM %>% 
+  tabyl(Segment, Category) %>%    
+  adorn_totals(where = c("row", "col")) %>% 
+  adorn_percentages(denominator = "all") %>% 
+  adorn_rounding(2)
+
+formattable(table2, align =c("l","c", "c", "c", "r"), list(
+  `Segment` = formatter("span", style = ~ style(color = "grey",font.weight = "bold")), 
+  `Furniture`= color_tile(customGreen, customGreen0),
+  `Office Supplies`= color_tile(customGreen, customGreen0),
+  `Technology`= color_tile(customGreen, customGreen0),
+  `Total` = color_tile(customRed,customRed0)
+))
+  
+```
+
+
+**Comments**
+
++ **Consumer segment** is the one that sells the most in each product Category with **52%**
+
++ **Office Supply** makes up **60%** of all product categories
+
+**Questions**
+
++ From which Region, State, and Region are the Office Supplies being ordered from? 
+
++ Where are most consumers ordering from?
+
+
+```{r}
+table3 <- OM %>% 
+  tabyl(Ship.Mode,Segment) %>%    
+  adorn_totals(where = c("row", "col")) %>% 
+  adorn_percentages(denominator = "all") %>% 
+  adorn_rounding(2)
+
+formattable(table3, align =c("l","c", "c", "c", "r"), list(
+  `Ship.Mode` = formatter("span", style = ~ style(color = "grey",font.weight = "bold")), 
+  `Consumer`= color_tile(customGreen, customGreen0),
+  `Corporate`= color_tile(customGreen, customGreen0),
+  `Home Office`= color_tile(customGreen, customGreen0),
+  `Total` = color_tile(customRed,customRed0)
+))
+
+
+
+```
+
+**Comments**
+
++ It is clear that Consumers take up a large percentage of the orders using Stadard Class shipping with **31%** compared to **18%** for Corporate and **11%** for Home Office. 
+
++ A lot of consumers also use second class **10%**.
+
+
+**Questions**
+
++ How which Regions use the most standard shipping? 
+
++ How does the other proportion of shipping methods look like for all Regions?
+
+
+
+```{r}
+table4 <- OM %>% 
+  tabyl(Ship.Mode, Region) %>%    
+  adorn_totals(where = c("row", "col")) %>% 
+  adorn_percentages(denominator = "all") %>% 
+  adorn_rounding(2)
+
+formattable(table4, align =c("l","c","c", "c", "c", "r"), list(
+  `Ship.Mode` = formatter("span", style = ~ style(color = "grey",font.weight = "bold")),
+  `Central`= color_tile(customGreen, customGreen0),
+  `East`= color_tile(customGreen, customGreen0),
+  `West`= color_tile(customGreen, customGreen0),
+  `North`= color_tile(customGreen, customGreen0),
+  `South`= color_tile(customGreen, customGreen0),
+  `Total` = color_tile(customRed,customRed0)
+))
+```
+
+**Comments**
+
++ The West uses **19%** standard shipping, the East uses **17%**, the Central uses **14%**, and the South uses **10%**.
+
++ Customers in the West and the East regions use all shipping methods similarly. 
+
++ We might target them together when we make any business decision.
+
+
+**Subcategories and Regions**
+
+
+```{r}
+table5 <- OM %>% 
+    tabyl(Sub.Category, Region) %>% 
+    adorn_totals(where = c("row", "col")) %>% 
+    adorn_percentages(denominator = "all") %>% 
+    adorn_rounding(2)
+
+formattable(table5, align =c("l","c", "c", "c", "r"), list(
+  `Sub.Category` = formatter("span", style = ~ style(color = "grey",font.weight = "bold")),
+ `Central`= color_tile(customGreen, customGreen0),
+  `East`= color_tile(customGreen, customGreen0),
+  `South`= color_tile(customGreen, customGreen0),
+  `West`= color_tile(customGreen, customGreen0),
+  `Total` = color_tile(customRed,customRed0)
+))
+```
+
+
+**Comments**
+
++ Central: Binders 4%, paper 3%
+
++ East: Binders 4%, paper 4%, Phone 3%
+
++ West: Accesories: 3%, Art 3%, Binders: 5%, Paper: 5%, Furnishings 3%, Phones: 3%, Storage: 3% 
+
+
+## Step 3.2: Quantitative 
+
+**correlation**
+
+
+```{r}
+
+  OM %>% 
+  select_if(is.numeric) %>% 
+  cor() %>% 
+  round(2) %>% 
+  kable()
+
+```
+
+
+**Comments**
+
++ **Discount** and **Profit** are negatively correlated with **-22%**. More discounts leads to less profit. 
+
++ **Profit** and **Revenue** show **48%**. The higher the revenue the higher the profit.
+
++ There is a **stong positive correlation** between **Cost** and **revenue** with **93%**. This means that as cost increases, Revenue increases and as cost decreases Revenue decreases. 
+
++ Quantity and profit have only **7%**. Quantity is not very correlated with profit. 
+
+
+
+# Base EDA Step 4: Multi-variate graphical
+
+## Step 4.1: Categorical: 
+
+**Category and Shipping mode**
+
+```{r}
+OM %>% 
+  ggplot(mapping = aes(x = Category, fill = Ship.Mode)) + 
+  geom_bar(position = "dodge") + 
+  scale_y_continuous(breaks = seq(0,4000, 500)) +
+  theme_classic() +
+  theme(axis.ticks.x = element_blank()) +
+  labs(title = "Standard Shipping is high for all product categories",
+       subtitle = "First and second class are consistent for all product categories",
+       x = " Product Category",
+       y = "Sales count",
+       fill = "Shipping Mode")
+
+```
+
+
+**Comments**
+
++ Office supplies is the category that Office Mate sells the most and a lot of their customers use standard class shipping. 
+
++ A significant number of customers choose first and second class for Office Supplies items. This means that customers need those items quickly.
+
++ Given that there is a large demand for office supplies, we might offer promotions for same day shipping for those items.
+
++ This will cost us money at first but we will generate profit from it in the long run.
+
+
+**Region and Segment**
+
+
+```{r}
+
+OM %>% 
+  ggplot(mapping = aes(x = Region, fill = Segment)) + 
+  geom_bar(position = "dodge") + 
+  scale_y_continuous(breaks = seq(0,2000, 250)) +
+  theme_classic() + 
+  theme(axis.ticks.x = element_blank()) +
+  labs(title = "Consumer segment is similar for West, Central, and East",
+       x = "Region",
+       y = "Sales count",
+       fill = "Segment")
+```
+
+  
+**Comments**
+
++ West, East, and Central are the Regions we will be focusing on.
+
++ We will mainly focus on Consumer and Corporate segments.
+
+
+
+**Top Cities, Consumer Segment, Standard Class Shipping**
+
+```{r}
+# Getting only big cities
+
+BigCities <- c("New York City","Los Angeles","San Francisco","Philadelphia","Seattle")
+
+# Narrowing down the data
+
+TopCities2<- OM %>% 
+  select(c("City", "Segment", "Ship.Mode", "Category")) %>% 
+  filter(City %in% BigCities, Segment == "Consumer", Ship.Mode == "Standard Class", Category == "Office Supplies") 
+  
+  TopCities2 %>% 
+  ggplot(mapping = aes(x = City)) + 
+  geom_bar(position = "dodge")+
+  theme_classic() +
+  theme(axis.ticks.y = element_blank()) +
+  theme(axis.title.y = element_blank()) +
+  coord_flip() +
+  scale_y_continuous(breaks = seq(0,400,50)) +
+  labs (title = "Most Consumers who use Standard shipping come from NYC and LA",
+         y = "Sales count")
+ 
+```
+
+
+**Comments**
+
++ In this graph, we narrowed our data down to top cities, consumer segment, Office supplies for product category, and standard class for shipping. 
+
++ We notice that the majority of consumers who purchase office supplies, and use standard shipping come from New York City and LA.
+
++ Although Seattle, San Francisco, and Philadelphia are big cities, they don't have as much demand for office supplies than NYC and LA.
+
++ We will target LA and NYC for our recommendation at the end of the analysis.
+
+
+## Step 4.2: Quantitative
+
+
+**Cost and Revenue from 2012-2015**
+
+```{r message= FALSE}
+grid.arrange(
+  
+Year1 %>% 
+  ggplot(mapping = aes(x = Revenue, y = Cost )) + 
+  geom_smooth() + 
+  theme_classic()+ 
+  labs(title = "Year1"),
+
+Year2 %>% 
+  ggplot(mapping = aes(x = Revenue, y = Cost )) + 
+  geom_smooth() + 
+  theme_classic()+ 
+  labs(title = "Year2"),
+
+Year3 %>% 
+  ggplot(mapping = aes(x = Revenue, y = Cost )) + 
+  geom_smooth() + 
+  theme_classic()+ 
+  labs(title = "Year3"),
+
+Year4 %>% 
+  ggplot(mapping = aes(x = Revenue, y = Cost )) + 
+  geom_smooth() + 
+  theme_classic()+ 
+  labs(title = "Year4"),
+
+ncol = 2
+)
+
+```
+
+
+**Comments**
+
++ For all 4 years, Revenue increases as cost increases. 
+
++ In 2012, the curve was almost like a line indicating a high correlation.
+
++ From 2013-2015, the curve became a little bit more flat.
+
+
+**Discount and Profit**
+
+```{r}
+discount2 <- OM %>% 
+    ggplot(mapping = aes(x = Discount, y = Profit)) +
+    geom_point() +
+    geom_jitter() + 
+    labs(title = "The only discount that brings profit is $0.20 and $0.40",
+         subtitle = "Discounts above $0.40 bring losses") + 
+    theme_classic() + 
+    scale_x_continuous(breaks = seq(0,0.8, 0.1),label = dollar) +
+    scale_y_continuous(breaks = seq(-8000,8200, 2000), label = dollar)
+discount2
+
+```
+
+**Comments**
+
++ Discounts that are $0.40 or more don't bring profit to the company.
+
++ We should cut down on those discounts and focus on **$0.2** and **$0.40** instead.
+
++ It's also important to mention that no discounts bring profit.
+
+
+
+**Revenue and profit for values less than $2,500**
+
+```{r}
+
+OM %>% 
+  filter(Revenue < 2500, Profit< 2500, Profit > -2500) %>% 
+  ggplot(mapping = aes(x = Revenue, y = Profit)) +
+  geom_point() + 
+  theme_classic() + 
+  scale_x_continuous(breaks = seq(0,2500,250))+
+  scale_y_continuous(breaks = seq(-2500,2500, 500))+
+  labs(title = "As Revenue increases, Profit increase",
+       subtitle = "There are many outliers for negative profit")
+
+```
+
+
+**Comments**
+
++ Most outliers for negative profits are below **-$500**. 
+
++ Office Mate makes most of its profits from small revenues of items that cost less than $100.
+
+
+
+## Step 4.3: Categorical and Quantitative 
+    
+
+**Revenue and Product Category**  
+
+```{r}
+
+OM %>% 
+  ggplot(mapping = aes(x = Revenue, y = Category))+
+  geom_point() + 
+  theme_classic() + 
+  scale_x_continuous(breaks = seq(0,30000, 2500), label = dollar) +
+  coord_flip() + 
+  labs( title = "Technology brings the most revenue per order",
+        subtitle = "Most orders cost less than $5,000 for all produt categories")
+
+```
+
+
+
+
+
+**Cost and days Shipping mode **
+
+```{r}
+graph2 <- OM %>% 
+  group_by(Ship.Mode, Cost,Days_In_Shipping) %>% 
+  summarize(MeanCost = mean(Cost)) %>%
+  ggplot(mapping = aes(x = Ship.Mode, y = MeanCost, fill = Days_In_Shipping))+
+  geom_bar(stat = "identity") + 
+  theme_classic()+
+  scale_y_continuous(breaks = seq(0,1250000,100000), label = dollar) +
+  theme(axis.ticks.x = element_blank()) +
+  labs(title = "Standard shipping orders have a high cost associated with them",
+       subtitle = "Costs associated with Same Day shipping are relatively low",
+       x = " Shipping Mode",
+       fill = "Days in Shipping")
+ graph2   
+  
+```
+ 
+
+    
+**Comments**
+
++ The majority of orders that go with standard shipping take 3 or 4 days.
+
++ The overall cost of Standard shipping is high, however, its cost per order is low which explains why cutomers choose to use it.
+
++ Same day shipping is very consistant, 0 days in the process. This means that there are no delays in the shipping.
+
++ We need to rely more on first class because it is reliable with 1-3 days of shipping. 
+
++ The current cost associated with First Class is **$300,000**, or **25%** of what we're spending on Standard shipping.
+
++ We need to narrow down our analysis for the detailed EDA. 
+
+
+
+**Total Profit by top cities**
+
+```{r}
+# Getting only big cities
+
+BigCities <- c("New York City","Los Angeles","San Francisco","Philadelphia","Seattle")
+
+# Graph
+
+sum_prof_City <- OM %>% 
+  group_by(City) %>%
+  filter(City %in% BigCities) %>% 
+  summarize(sum_prof = sum(Profit)) %>% 
+  ggplot(mapping = aes(x = reorder(City,sum_prof),
+                       y = sum_prof, fill = City)) + 
+  geom_bar(stat = "identity", position = "dodge") +
+  geom_hline(yintercept = 0) +
+  theme_classic() +
+  theme(axis.line.y = element_blank(),
+        axis.ticks.y = element_blank()) +
+  coord_flip() +
+  labs(title = "New York City is leading in total profits",
+       y = "Total Profit") +
+  scale_fill_manual(values = c("grey", "red", "grey","grey","grey")) +
+  scale_y_continuous(labels = dollar)
+
+sum_prof_City
+
+
+ 
+```
+    
+
+**Quantity sold in Philadelphia**
+
+```{r}
+Phili <- OM %>% 
+  filter(City == "Philadelphia") %>% 
+  mutate(Year = floor_date(x = Order.Date, unit = "month")) %>% 
+  group_by(Year) %>% 
+  summarize(yearly_profit = sum(Profit)) %>% 
+  ggplot(mapping = aes(x = Year, y = yearly_profit)) +
+  geom_line() + 
+  theme_classic() + 
+  scale_y_continuous(breaks = seq(-3000,25000, 500), label = dollar) + 
+  labs(title = "Philadelphia Annual profit",
+       y = "Annual Profit")
+
+Phili
+  
+  
+  
+```
+
+
+
+# Detailed EDA - Questions raised in Base EDA
+
+## Question 1: How does the annual trend in profit look like?
+
+```{r}
+
+graph3 <- OM %>% 
+  mutate(Year = floor_date(x = Order.Date, unit = "month")) %>% 
+  group_by(Year) %>% 
+  summarize(yearly_profit = sum(Profit)) %>% 
+  ggplot(mapping = aes(x = Year, y = yearly_profit)) +
+  geom_line() + 
+  theme_classic() + 
+  scale_y_continuous(breaks = seq(-5000,25000, 2000), label = dollar) + 
+  labs(title = "Annual profit peaks in 2015",
+       subtitle = "There was a big loss in 2013",
+       y = "Annual Profit")
+graph3
+
+```
+
+**Comments**
+
++ There is a large loss in profit by the end of 2012 that hit -$3,000 by 2013. 
+
+    - Profit increases after 2013.
++ Two peak occur in 2015 at the end of the year. 
+
++ Profit increased from $3,000 in 2012 to over $17,000 in 2015.
+
+
+    
+## Question 2: How does the annual trend in profit look like per product category?
+
+
+```{r}
+graph4 <- OM %>% 
+  mutate(yr = floor_date(x = Order.Date, unit = "year")) %>% 
+  group_by(yr, Category) %>% 
+  summarize(annual_profit = sum(Profit)) %>% 
+  ggplot(mapping = aes(x = yr, y = annual_profit, color = Category)) +
+  geom_line() + 
+  theme_classic() + 
+  labs(title = "Furniture is not generating a lot of profit",
+      subtitle = "Technology and Office Supplies have a increasing trend",
+      x = "Year",
+      y = "Annual Profit") +
+  scale_y_continuous(breaks = seq(0, 55000, 5000), label = dollar)
+
+graph4
+```
+
+**Comments**
+
++ Furniture's annual profit doesn't reach $10,000 in all the years.
+
++ Technology has an increasing trend overall with high annual profits. 
+
+    - This makes sense as technology is expensive if we were to compare it with furniture.
+
++ We learned from previous graphs that Office Supplies is the highest selling category. Here it's showing that it has an increaing trend with high annual profits but not as high as Technology.
+
+
+## Diving into subcategories of each category
+
+**Furniture profit Trends**
+
+```{r}
+grid.arrange(
+OM %>% 
+  filter(Sub.Category == "Chairs") %>%
+  mutate(Year = floor_date(x = Order.Date, unit = "year")) %>% 
+  group_by(Year, Sub.Category) %>% 
+  summarize(annual_profit = sum(Profit)) %>% 
+  ggplot(mapping = aes(x = Year , y = annual_profit, color = Sub.Category)) +
+  geom_line() + 
+  theme_classic() +
+  labs(y = "Annual Profit", color = ""),
+
+OM %>%
+  filter(Sub.Category == "Bookcases") %>%
+  mutate(Year = floor_date(x = Order.Date, unit = "year")) %>% 
+  group_by(Year, Sub.Category) %>% 
+  summarize(annual_profit = sum(Profit)) %>% 
+  ggplot(mapping = aes(x = Year , y = annual_profit, color = Sub.Category)) +
+  geom_line() +
+  theme_classic() +
+  labs(y = "Annual Profit", color = ""),
+
+OM %>%
+  filter(Sub.Category == "Tables") %>%
+  mutate(Year = floor_date(x = Order.Date, unit = "year")) %>% 
+  group_by(Year, Sub.Category) %>% 
+  summarize(annual_profit = sum(Profit)) %>% 
+  ggplot(mapping = aes(x = Year , y = annual_profit, color = Sub.Category)) +
+  geom_line() +
+  theme_classic() +
+  labs(y = "Annual Profit", color = ""),
+
+OM %>%
+  filter(Sub.Category == "Furnishings") %>%
+  mutate(Year = floor_date(x = Order.Date, unit = "year")) %>% 
+  group_by(Year, Sub.Category) %>% 
+  summarize(annual_profit = sum(Profit)) %>% 
+  ggplot(mapping = aes(x = Year , y = annual_profit, color = Sub.Category)) +
+  geom_line()+
+  theme_classic() +
+  labs(y = "Annual Profit", color = ""),
+ncol = 2
+)
+```
+
+**Comments**
+
++ 2014 seems to be a significant year for Office Mate for all furniture items.
+
++ They sold a lot of Chairs and made a significant profit from it in 2014.
+
++ They had a hug loss for tables in 2014. **Tables don't bring in any money, they should be discontinued.**
+
++ Furnishings have an increase trend in profit. The rate of increase became flat after 2014 but still follows an unward slope.
+
++ Bookcases had a significant loss form 2012 to 2013. Office Mate recovered from the loss in 2014 then it was followed by losses in the same year. **Bookcases are not unreliable, we shouldn't continue selling them**
+
+
++ We recall that in **Base EDA Step 3.1**, we learned that the most selling subcategory items for most  Regions were **Accesories**, **Machines**, **Copiers**, and **Phones**. These fall under the category of technology.
+
+    - Let's graph the profits of those subcategories with a trend line.
+    
+**Technology profit trend**
+
+
+```{r}
+grid.arrange(
+OM %>% 
+  filter(Sub.Category == "Accessories") %>%
+  mutate(Year = floor_date(x = Order.Date, unit = "year")) %>% 
+  group_by(Year, Sub.Category) %>% 
+  summarize(annual_profit = sum(Profit)) %>% 
+  ggplot(mapping = aes(x = Year , y = annual_profit, color = Sub.Category)) +
+  geom_line() + 
+  theme_classic() +
+  labs(y = "Annual Profit", color = ""),
+
+OM %>%
+  filter(Sub.Category == "Machines") %>%
+  mutate(Year = floor_date(x = Order.Date, unit = "year")) %>% 
+  group_by(Year, Sub.Category) %>% 
+  summarize(annual_profit = sum(Profit)) %>% 
+  ggplot(mapping = aes(x = Year , y = annual_profit, color = Sub.Category)) +
+  geom_line() +
+  theme_classic() +
+  labs(y = "Annual Profit", color = ""),
+
+OM %>%
+  filter(Sub.Category == "Copiers") %>%
+  mutate(Year = floor_date(x = Order.Date, unit = "year")) %>% 
+  group_by(Year, Sub.Category) %>% 
+  summarize(annual_profit = sum(Profit)) %>% 
+  ggplot(mapping = aes(x = Year , y = annual_profit, color = Sub.Category)) +
+  geom_line() +
+  theme_classic() +
+  labs(y = "Annual Profit", color = ""),
+
+OM %>%
+  filter(Sub.Category == "Phones") %>%
+  mutate(Year = floor_date(x = Order.Date, unit = "year")) %>% 
+  group_by(Year, Sub.Category) %>% 
+  summarize(annual_profit = sum(Profit)) %>% 
+  ggplot(mapping = aes(x = Year , y = annual_profit, color = Sub.Category)) +
+  geom_line()+
+  theme_classic() +
+  labs(y = "Annual Profit", color = ""),
+ncol = 2
+)
+```
+
+**Comments**
+
++ Accessories have an upward slope line. The line became flat in 2013 but recovered the next year.
+
++ Machines had an upward slope line from 2012, the curve became flat from 2013-2014. A significant loss was followed after 2014.
+
++ Copiers are on a perfect upward trend line. There is have high demand on them and they bring a lot of profit. **We will recommend we increase in advertisement for copiers**
+
++ Phones had a loss from 2012 to 2014 then recovered afterward. 
+
+
+
+**Office Supplies profit trends**
+
++ We will only focus on the best selling items from this subcategory: Art, Binders, Paper, Storage.
+
+
+```{r}
+grid.arrange(
+OM %>% 
+  filter(Sub.Category == "Art") %>%
+  mutate(Year = floor_date(x = Order.Date, unit = "year")) %>% 
+  group_by(Year, Sub.Category) %>% 
+  summarize(annual_profit = sum(Profit)) %>% 
+  ggplot(mapping = aes(x = Year , y = annual_profit, color = Sub.Category)) +
+  geom_line() + 
+  theme_classic() +
+  labs(y = "Annual Profit", color = ""),
+
+OM %>%
+  filter(Sub.Category == "Binders") %>%
+  mutate(Year = floor_date(x = Order.Date, unit = "year")) %>% 
+  group_by(Year, Sub.Category) %>% 
+  summarize(annual_profit = sum(Profit)) %>% 
+  ggplot(mapping = aes(x = Year , y = annual_profit, color = Sub.Category)) +
+  geom_line() +
+  theme_classic() +
+  labs(y = "Annual Profit", color = ""),
+
+OM %>%
+  filter(Sub.Category == "Paper") %>%
+  mutate(Year = floor_date(x = Order.Date, unit = "year")) %>% 
+  group_by(Year, Sub.Category) %>% 
+  summarize(annual_profit = sum(Profit)) %>% 
+  ggplot(mapping = aes(x = Year , y = annual_profit, color = Sub.Category)) +
+  geom_line() +
+  theme_classic() +
+  labs(y = "Annual Profit", color = ""),
+
+OM %>%
+  filter(Sub.Category == "Storage") %>%
+  mutate(Year = floor_date(x = Order.Date, unit = "year")) %>% 
+  group_by(Year, Sub.Category) %>% 
+  summarize(annual_profit = sum(Profit)) %>% 
+  ggplot(mapping = aes(x = Year , y = annual_profit, color = Sub.Category)) +
+  geom_line()+
+  theme_classic() +
+  labs(y = "Annual Profit", color = ""),
+ncol = 2
+)
+```
+
+
+**Comments**
+
++ Art was not bringing in a lot of profit in 2012 and 2013. Sales increased in 2014 and kept an upward sloping trend. **We should sell more Art.**
+
++ Binders were selling well from 2012 until 2014 and then started decreasing. This can be explained by the switch of user trends from binders to digital file keeping storage.
+
++ Paper has an upward slope that indicates high profits. We recall how in the previous graph we found out that copiers have a perfect linear trend, papers are complimentary goods for copiers so they sell well together. **We should sell more paper and advertise them with copiers.**
+
++ Storage started to bring in profit from 2013 and kept that upward sloping curve.
+
+
+
+# Statistical EDA:
+
+**Null Hypothesis: Revenue from Technology and Furniture is the same**
+
+
+```{r}
+# Graphing  Rvenue with Technology and Office Supplies
+
+subsetCat <- subset(OM,OM$Category %in% c("Technology","Furniture"))
+
+subsetCat %>% 
+  filter(Revenue<5000, Cost <5000) %>% 
+  ggplot(mapping = aes(x = Revenue, y = Cost, color = Category)) +
+  geom_point() + 
+  geom_smooth(method = 'lm') + 
+  theme_classic() +
+  labs(title ="Both trend lines look very similar",
+       subtitle = "We need to run statistical testing") +
+  scale_x_continuous(breaks = seq(0,5000,1000), labels = dollar) +
+  scale_y_continuous(breaks = seq(0,5000, 1000), labels = dollar) 
+```
+
+
+# Statistical test 
+
+```{r}
+# Our variables are Factors so we will run the Chi-square 
+
+
+set1 <- subset(OM, OM$Category == "Furniture")
+set2 <- subset(OM, OM$Category == "Technology")
+
+# t-test
+t <- t.test(set1$Revenue, set2$Revenue, conf.level = 0.95)
+t
+
+```
+
+**Comments**
+
++ After running the t-test we got a very small p-value indicating the findings are statistically significant and reliable. Meaning that the difference in Revenue from Technology and Furnitures  happens frequently.
+
+
++ Our null hypothesis states that the Revenue of Technology and Furnitures are the same. After running the t-test we found out from the sample confidence interval the population mean price is between  -157.8094 and -47.9394.
+
+
+    - Reject the null hypothesis at 95% confidence level
+    
+    - Since the difference is negative, Revenue coming from Office Supplies is lower than Revenue coming from Technology.
+    
+    - P value is very small indicating the findings are statistically significant and reliable. 
+
+
+ # Regression Analysis of Revenue and other variables
+ 
+```{r}
+
+# Logit regression with general linear model (glm)
+
+model <- glm(Revenue ~ Discount + Profit + Cost , data = OM)
+
+summary(model)
+
+```
+
+
+
+```{r}
+# plotting residuals to check for patterns
+
+par(mfrow = c(1, 1))
+plot(OM$Discount, model$residuals)
+plot(OM$Profit, model$residuals)
+plot(OM$Cost, model$residuals)
+
+```
+
+**Comments**
+
++ Discount has negative coefficient indicating that revenue decreases as we do more discounts.
+
++ Profit and cost both have positive coefficient of 1.00 indicating that revenue will increase as profit and cost will increase. These results were statistically significant. 
+
++ This model doesn't have many numeric variables that will be very useful for forecasting or predicting revenue. 
+
++ The graphs of the residuals indicate that it's better not to do discounts.
+
+
+
+
+# Summary
+
++ We have answered most questions we asked in the beginning of this project and here are some of the answers and findings: 
+
+	- Most sales happen in the West.
+	
+	- Cities we need to target NYC, LA.
+	
+	- More sales occur on holidays, at the end of the of each year.
+	
+	- Most orders have 2 or 3 items in them. If we want to be more profitable we must increase the quantity sold in each order to reduce waste. 
+	
+	- Large discounts don't bring so much revenue, we should get rid of some of them.
+
+	- We need to advertise more for faster shipping like same day and first class if we want to stay competitive with companies like Amazon. 
+	
+	- Annual profits from Technology and Office Supplies categories contribute significantly to the overall profit of the company. We should focus on those.
+	
+	- Looking at Subcategories, we should sell more of: Furnishings, copiers, accessories, paper, Art. Stop selling: tables and machines.
+	
+	- Our null hypothesis stated that **Technlogy** and **Furniture** have the similar sales counts. We wanted to know whether the revenue generated from both product categories were the same.
+	
+	- After running a Chi-Square test we found out that the P-value was small and that we rejected the hypothesis: **The Revenue from Technology and Furniture are not the same.**
+
+
+
+
+# Visuals for the memo
+
+```{r}
+
+ggsave(filename = 'Most orders contain 2 and 3 items per order.png', plot = graph1)
+ggsave(filename = 'Standard shipping orders have a high cost associated with them.png', plot = graph2)
+ggsave(filename = 'Annual profit peaks in 2015.png', plot = graph3)
+ggsave(filename = 'Furniture is not generating a lot of profit.png', plot = graph4)
+ggsave(filename = 'There are more discounts offered at $0.7 and $0.8.png', plot = discount1)
+ggsave(filename = 'The only discount that brings profit is $0.20 and $0.40.png', plot = discount2)
+ggsave(filename = "New York City is leading in total profits.png", plot = sum_prof_City)
+ggsave(filename = "Philadelphia Annual profit.png", plot = Phili)
+
+
+
+```
+
+
+
+  
